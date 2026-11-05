@@ -5,26 +5,52 @@ import { type NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+
+  const code = searchParams.get("code");
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/";
 
+  // Allow only internal redirects within this application
+  const requestedNext = searchParams.get("next") ?? "/protected";
+  const requestedUrl = new URL(requestedNext, request.url);
+  const currentUrl = new URL(request.url);
+
+  const next =
+    requestedUrl.origin === currentUrl.origin
+      ? `${requestedUrl.pathname}${requestedUrl.search}${requestedUrl.hash}`
+      : "/protected";
+
+  const supabase = await createClient();
+
+  // 1. Handle standard PKCE flow (code parameter)
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      redirect(next);
+    }
+    redirect(
+      `/auth/error?error=${encodeURIComponent(error.message)}`
+    );
+  }
+
+  // 2. Handle Token Hash flow (token_hash & type parameters)
   if (token_hash && type) {
-    const supabase = await createClient();
-
     const { error } = await supabase.auth.verifyOtp({
       type,
       token_hash,
     });
+
     if (!error) {
-      // redirect user to specified redirect URL or root of app
       redirect(next);
-    } else {
-      // redirect the user to an error page with some instructions
-      redirect(`/auth/error?error=${error?.message}`);
     }
+
+    redirect(
+      `/auth/error?error=${encodeURIComponent(error.message)}`
+    );
   }
 
-  // redirect the user to an error page with some instructions
-  redirect(`/auth/error?error=No token hash or type`);
+  // 3. Fallback error if neither code nor token_hash is present
+  redirect(
+    `/auth/error?error=${encodeURIComponent("No valid confirmation code or token provided")}`
+  );
 }
