@@ -84,7 +84,15 @@ const activities = [
   { label: "Water intake", time: "Not logged yet", icon: Droplets },
 ];
 
-export function PhysiqForgeDashboard() {
+type PhysiqForgeDashboardProps = {
+  profileName: string;
+  hasCompletedOnboarding: boolean;
+};
+
+export function PhysiqForgeDashboard({
+  profileName,
+  hasCompletedOnboarding,
+}: PhysiqForgeDashboardProps) {
   return (
     <main className="min-h-screen bg-[#0A090B] text-white">
       <div className="flex min-h-screen">
@@ -187,7 +195,9 @@ export function PhysiqForgeDashboard() {
                   Wednesday · Your personal space
                 </p>
                 <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                  Welcome to <span className="text-red-400">PhysiqForge.</span>
+                  Welcome{profileName ? `, ${profileName}` : ""}!
+                  <br />
+                  <span className="text-red-400">PhysiqForge.</span>
                 </h1>
                 <p className="mt-2 text-sm text-zinc-500">
                   Build consistency. Track progress. Become stronger.
@@ -224,10 +234,15 @@ export function PhysiqForgeDashboard() {
                 </p>
 
                 <a
-                  href="#setup"
+                  href={
+                    hasCompletedOnboarding
+                      ? "/protected/profile"
+                      : "/protected/onboarding"
+                  }
                   className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#C52D42] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#DE354C]"
                 >
-                  Set up your profile <ChevronRight size={17} />
+                  {hasCompletedOnboarding ? "View / Edit Profile" : "Complete Your Profile"}
+                  <ChevronRight size={17} />
                 </a>
               </div>
             </div>
@@ -305,7 +320,11 @@ export function PhysiqForgeDashboard() {
                     workout.
                   </p>
                   <a
-                    href="#setup"
+                    href={
+                      hasCompletedOnboarding
+                        ? "/protected/fitness"
+                        : "/protected/onboarding"
+                    }
                     className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-red-400"
                   >
                     Create workout plan <ChevronRight size={15} />
@@ -339,7 +358,11 @@ export function PhysiqForgeDashboard() {
                     meal plan.
                   </p>
                   <a
-                    href="#setup"
+                    href={
+                      hasCompletedOnboarding
+                        ? "/protected/nutrition"
+                        : "/protected/onboarding"
+                    }
                     className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-red-400"
                   >
                     Create diet plan <ChevronRight size={15} />

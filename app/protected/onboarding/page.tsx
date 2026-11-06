@@ -1,4 +1,6 @@
+
 import { redirect } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 
@@ -7,30 +9,79 @@ export const instant = false;
 export default async function OnboardingPage() {
   const supabase = await createClient();
 
+  // 1. Verify authentication.
   const { data, error } = await supabase.auth.getClaims();
 
   if (error || !data?.claims) {
     redirect("/auth/login");
   }
 
-  return (
-    <main className="min-h-screen bg-[#0A090B] px-5 py-10 text-white sm:px-8">
-      <div className="mx-auto max-w-3xl">
-        <p className="text-sm font-bold tracking-[0.25em] text-[#D73549]">
-          PHYSIQFORGE
-        </p>
+  const userId = data.claims.sub;
 
-        <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-          Let's build your fitness profile.
-        </h1>
+  if (typeof userId !== "string") {
+    redirect("/auth/login");
+  }
 
-        <p className="mt-3 text-sm text-zinc-400">
-          Tell us about yourself so your AI personal trainer can create a
-          fitness experience tailored to your goals.
-        </p>
+  // 2. Fetch the user's profile.
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select(`
+      full_name,
+      date_of_birth,
+      height_cm,
+      current_weight_kg,
+      fitness_goal,
+      experience_level,
+      equipment_access
+    `)
+    .eq("user_id", userId)
+    .maybeSingle();
 
-        <OnboardingWizard />
-      </div>
-    </main>
+  if (profileError) {
+    throw new Error("Unable to load your profile.");
+  }
+
+  // 3. Fetch the user's preferences.
+  const { data: preferences, error: preferencesError } =
+    await supabase
+      .from("user_preferences")
+      .select(`
+        preferred_workout_location,
+        preferred_workout_days,
+        preferred_workout_duration_minutes,
+        diet_preference,
+        sleep_target_hours
+      `)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+  if (preferencesError) {
+    throw new Error("Unable to load your preferences.");
+  }
+
+  // 4. Check onboarding completion.
+  const hasCompletedOnboarding = Boolean(
+    profile &&
+    preferences &&
+    profile.full_name?.trim() &&
+    profile.date_of_birth &&
+    Number(profile.height_cm) > 0 &&
+    Number(profile.current_weight_kg) > 0 &&
+    profile.fitness_goal &&
+    profile.experience_level &&
+    profile.equipment_access &&
+    preferences.preferred_workout_location &&
+    preferences.preferred_workout_days?.length > 0 &&
+    preferences.preferred_workout_duration_minutes &&
+    preferences.diet_preference &&
+    Number(preferences.sleep_target_hours) > 0
   );
+
+  // 5. Completed users should return to the dashboard.
+  if (hasCompletedOnboarding) {
+    redirect("/protected");
+  }
+
+  // 6. Only users with incomplete profiles see onboarding.
+  return <OnboardingWizard />;
 }
